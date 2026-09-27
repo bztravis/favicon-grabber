@@ -3,11 +3,11 @@
 # Required parameters:
 # @raycast.schemaVersion 1
 # @raycast.title Favicon Grabber
-# @raycast.mode compact
+# @raycast.mode silent
 # @raycast.argument1 { "type": "text", "placeholder": "Brand name or website URL" }
 
 # Optional parameters:
-# @raycast.icon 🌐
+# @raycast.icon 🎴
 
 # Documentation:
 # @raycast.author bztravis88
