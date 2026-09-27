@@ -1,7 +1,9 @@
 import unittest
 from unittest.mock import patch
 
-from find_favicons import discover, official_websites, resolve
+from find_favicons import discover, official_websites, resolve, resolve_candidates, main
+import io
+from contextlib import redirect_stdout, redirect_stderr
 
 
 def statement(url, rank="normal", **extra):
@@ -37,13 +39,23 @@ class FaviconTests(unittest.TestCase):
             {"search": [{"id": "Q1", "label": "Acme"}, {"id": "Q2", "label": "Acme"}]},
             {"entities": {"Q1": entity(statement("https://one.com")), "Q2": entity(statement("https://two.com"))}},
         ]):
-            with self.assertRaisesRegex(ValueError, "Multiple websites"):
-                resolve("Acme")
+            self.assertEqual(resolve_candidates("Acme"), ["https://one.com", "https://two.com"])
 
     def test_missing_brand(self):
         with patch("find_favicons.wikidata", return_value={"search": []}):
-            with self.assertRaisesRegex(ValueError, "No brand found"):
+            with self.assertRaisesRegex(ValueError, "No result found"):
                 resolve("Unknown Brand")
+
+    def test_first_result_selected(self):
+        with patch("find_favicons.resolve_candidates", return_value=["https://one.com", "https://two.com"]):
+            self.assertEqual(resolve("Acme"), "https://one.com")
+
+    def test_no_result_uses_stderr(self):
+        out, err = io.StringIO(), io.StringIO()
+        with patch("sys.argv", ["find_favicons.py", "resolve-all", "Missing"]), patch("find_favicons.wikidata", return_value={"search": []}), redirect_stdout(out), redirect_stderr(err):
+            self.assertEqual(main(), 1)
+        self.assertEqual(out.getvalue(), "")
+        self.assertIn("No result found", err.getvalue())
 
     def test_icon_discovery(self):
         html = '<base href="/assets/"><link rel="shortcut icon" sizes="16x16" href="a.ico"><link rel="icon" sizes="128x128" href="b.png">'

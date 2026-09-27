@@ -44,15 +44,15 @@ def official_websites(entity):
     return list(dict.fromkeys(url for _, url in websites))
 
 
-def resolve(value):
+def resolve_candidates(value):
     value = value.strip()
     if not value:
         raise ValueError("Enter a brand name, domain, or website URL.")
     if "://" in value or value.startswith("//") or (not re.search(r"\s", value) and ("." in value or ":" in value or "/" in value or value == "localhost")):
-        return normalize(value)
+        return [normalize(value)]
     results = wikidata(action="wbsearchentities", search=value, language="en", type="item", limit=10).get("search", [])
     if not results:
-        raise ValueError("No brand found on Wikidata. Enter the website domain instead.")
+        raise ValueError("No result found on Wikidata. Enter the website domain instead.")
     entities = wikidata(action="wbgetentities", ids="|".join(item["id"] for item in results), props="claims").get("entities", {})
     candidates = []
     for item in results:
@@ -63,13 +63,17 @@ def resolve(value):
     exact = [candidate for candidate in candidates if candidate[0]]
     if exact:
         candidates = exact
-    domains = {urlsplit(url).hostname.removeprefix("www.") for _, _, url in candidates}
-    if len(domains) == 1:
-        return candidates[0][2]
     if not candidates:
-        raise ValueError("No current official website (P856) found on Wikidata. Enter a domain instead.")
-    choices = "; ".join(dict.fromkeys(f"{name}: {urlsplit(url).hostname}" for _, name, url in candidates))
-    raise ValueError("Multiple websites found. Run again with a domain: " + choices)
+        raise ValueError("No result found: no current official website (P856) on Wikidata. Enter a domain instead.")
+    websites = {}
+    for _, _, url in candidates:
+        domain = urlsplit(url).hostname.removeprefix("www.")
+        websites.setdefault(domain, url)
+    return list(websites.values())
+
+
+def resolve(value):
+    return resolve_candidates(value)[0]
 
 
 def normalize(value):
@@ -152,6 +156,8 @@ def main():
     try:
         if len(sys.argv) == 3 and sys.argv[1] == "resolve":
             print(resolve(sys.argv[2]))
+        elif len(sys.argv) == 3 and sys.argv[1] == "resolve-all":
+            print("\n".join(resolve_candidates(sys.argv[2])))
         elif len(sys.argv) == 3 and sys.argv[1] == "normalize":
             print(normalize(sys.argv[2]))
         elif len(sys.argv) == 4 and sys.argv[1] == "discover":

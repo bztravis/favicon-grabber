@@ -25,7 +25,8 @@ for candidate in "$(command -v python3 || true)" /opt/homebrew/bin/python3 /usr/
     fi
 done
 [[ -n "$PYTHON" ]] || fail "Python 3 is required. Install it and try again."
-URL="$("$PYTHON" "$SCRIPT_DIR/find_favicons.py" resolve "${1:-}")" || exit 1
+WEBSITES="$("$PYTHON" "$SCRIPT_DIR/find_favicons.py" resolve-all "${1:-}")" || exit 1
+URL="${WEBSITES%%$'\n'*}"
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf -- "$TEMP_DIR"' EXIT
 trap 'exit 130' INT
@@ -35,7 +36,7 @@ fetch() {
     /usr/bin/curl --location --max-redirs 5 --fail --silent --show-error \
         --connect-timeout 5 --max-time 15 --max-filesize 10485760 \
         --proto '=http,https' --proto-redir '=http,https' \
-        --user-agent 'Mozilla/5.0 (compatible; FaviconGrabber/1.0)' "$@"
+        --user-agent 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' "$@"
 }
 
 PAGE_FAILED=0
@@ -59,7 +60,7 @@ while IFS= read -r ICON_URL; do
         /usr/bin/awk '/pixelWidth:|pixelHeight:/ { if ($2 + 0 > 0) n++ } END { exit(n != 2) }'; then
         continue
     fi
-    if ! /usr/bin/osascript - "$TEMP_DIR/favicon.png" <<'APPLESCRIPT'
+    if ! /usr/bin/osascript - "$TEMP_DIR/favicon.png" > /dev/null <<'APPLESCRIPT'
 on run argv
     set imageFile to POSIX file (item 1 of argv)
     set imageData to read imageFile as «class PNGf»
@@ -69,8 +70,12 @@ APPLESCRIPT
     then
         fail "Found a favicon, but could not copy it to the clipboard."
     fi
-    HOST="$("$PYTHON" -c 'import sys, urllib.parse; print(urllib.parse.urlsplit(sys.argv[1]).hostname)' "$FINAL_URL")"
-    echo "Copied favicon for $HOST"
+    "$PYTHON" - "$WEBSITES" <<'PYTHON'
+import sys
+from urllib.parse import urlsplit
+websites = sys.argv[1].splitlines()
+print(", ".join(urlsplit(url).hostname for url in websites))
+PYTHON
     exit 0
 done < "$TEMP_DIR/candidates"
 

@@ -33,7 +33,11 @@ Brand names are searched on Wikidata using its free public API, then resolved
 using the official website property (`P856`). Preferred statements take priority;
 deprecated statements and statements with an end date are ignored. Exact name
 matches take priority among results with websites. If multiple domains remain,
-the command lists them and asks you to run again with a domain. Small brands may
+the command uses the first website. Successful copies print only the website
+domains in order, separated by commas (or just the domain for a single match).
+No results and download/copy failures print to stderr and exit unsuccessfully.
+Raycast uses silent mode, displaying the success output in its floating toast.
+Small brands may
 be missing. Domains and URLs bypass Wikidata. Brand searches are sent to Wikidata.
 
 No API key or third-party favicon service is used. Failed retrieval or conversion
